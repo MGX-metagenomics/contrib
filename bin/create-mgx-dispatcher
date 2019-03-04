@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+#
+# $Id$
+#
+
+if [ $# -ne 2 ]; then
+    echo ""
+    echo "Usage $0 <GPMS-type> <domain-name>"
+    echo ""
+    exit 1
+fi
+
+GPMSTYPE=$1
+DOMAIN=$2
+
+# find the glassfish installation dir
+#
+ASADMIN=`which asadmin 2>/dev/null`
+if [ "x" = ${ASADMIN}x ]; then
+    echo "'asadmin' command not found in PATH."
+    exit 1
+fi
+
+GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
+GF_DOMAINROOT=""
+
+if [ -d ${GF_ROOT}glassfish/domains ]; then
+    GF_DOMAINROOT=${GF_ROOT}glassfish/domains
+elif [ -d ${GF_ROOT}domains ]; then
+    GF_DOMAINROOT=${GF_ROOT}domains
+else 
+    echo "Could not determine Glassfish domain directory."
+    exit 1
+fi
+
+
+${ASADMIN} create-domain ${DOMAIN} || exit 1
+
+CFG_DIR=${GF_DOMAINROOT}/${DOMAIN}/config
+
+# create backup copy of unmodified domain configuration
+mv ${CFG_DIR}/domain.xml ${CFG_DIR}/domain.xml.dist || exit 1
+
+
+XSLT="`dirname $0`/../share/MGXdispatcher.xsl"
+xsltproc ${XSLT} ${CFG_DIR}/domain.xml.dist > ${CFG_DIR}/domain.xml
+
+if [ ${GPMSTYPE} = "MySQL" ]; then
+
+    # fetch jdbc driver
+    wget --user-agent="Mozilla" \
+      -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/mysql-connector-java-5.1.38.jar \
+      http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar
+
+    XSLT_GPMS="`dirname $0`/../share/MGXdispatcher_mysqlgpms.xsl"
+    xsltproc ${XSLT_GPMS} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml.gpms
+    mv ${CFG_DIR}/domain.xml.gpms ${CFG_DIR}/domain.xml
+
+elif [ ${GPMSTYPE} = "LDAP" ]; then
+
+    echo "Skipping JDBC datasource, not required"
+
+else 
+    echo "Invalid GPMS implementation type. Cannot auto-setup configuration."
+fi
+
+xmllint --format ${CFG_DIR}/domain.xml > /tmp/$$
+mv /tmp/$$ ${CFG_DIR}/domain.xml
+
+cp `dirname $0`/../share/mgx_dispatcher.properties ${CFG_DIR}/
+cp `dirname $0`/../share/gpms.properties ${CFG_DIR}/
+
+
+# psql driver
+wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-9.4.1207.jre6.jar \
+  https://jdbc.postgresql.org/download/postgresql-9.4.1207.jre6.jar
+
+# SQLite for persistent job queue
+wget --user-agent="Mozilla" \
+  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/sqlite-jdbc-3.8.11.2.jar \
+  http://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.8.11.2/sqlite-jdbc-3.8.11.2.jar
+
+
+# need running instance for this to work
+${ASADMIN} start-domain ${DOMAIN} || exit 1
+${ASADMIN} enable-secure-admin || exit 1
+${ASADMIN} stop-domain ${DOMAIN} || exit 1
+
