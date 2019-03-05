@@ -14,14 +14,11 @@ fi
 GPMSTYPE=$1
 DOMAIN=$2
 
+command -v xsltproc >/dev/null 2>&1 || { echo >&2 "xsltproc not found."; exit 1; }
+command -v asadmin >/dev/null 2>&1 || { echo >&2 "asadmin not found."; exit 1; }
+
 # find the glassfish installation dir
 #
-ASADMIN=`which asadmin 2>/dev/null`
-if [ "x" = ${ASADMIN}x ]; then
-    echo "'asadmin' command not found in PATH."
-    exit 1
-fi
-
 GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
 GF_DOMAINROOT=""
 
