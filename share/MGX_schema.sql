@@ -107,7 +107,8 @@ CREATE TABLE tool (
     name character varying(255) NOT NULL,
     url character varying(512),
     version real NOT NULL,
-    xml_file character varying(255)
+    xml_file character varying(255),
+    scope INTEGER NOT NULL
 );
 ALTER TABLE public.tool OWNER TO mgx_user;
 ALTER TABLE ONLY tool ADD CONSTRAINT tool_name_key UNIQUE (name, version);
