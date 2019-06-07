@@ -20,6 +20,7 @@ command -v asadmin >/dev/null 2>&1 || { echo >&2 "asadmin not found."; exit 1; }
 
 # find the glassfish installation dir
 #
+ASADMIN=`which asadmin`
 GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
 GF_DOMAINROOT=""
 
