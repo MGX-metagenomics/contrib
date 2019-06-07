@@ -96,36 +96,17 @@ cp `dirname $0`/../share/gpms.properties ${CFG_DIR}/
 
 # fetch the Mysql JAR
 wget --user-agent="Mozilla" \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/mysql-connector-java-5.1.38.jar \
-  http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar
+  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/mysql-connector-java-8.0.16.jar \
+  http://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar
 
 # psql driver
-wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-42.2.1.jre7.jar \
-  https://jdbc.postgresql.org/download/postgresql-42.2.1.jre7.jar
-
-# JRI - R to Java binding
-#wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/JRI-0.9-6.jar \
-#  http://artifactory.cebitec.uni-bielefeld.de/artifactory/libs-release/de/cebitec/external/JRI/0.9-6/JRI-0.9-6.jar
+wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-42.2.5.jar \
+  https://jdbc.postgresql.org/download/postgresql-42.2.5.jar
 
 # fetch JavaGPMS realm
 wget \
   -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/GPMS-glassfish3-realm-1.1.jar \
   https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
-
-# Hibernate 4
-cd ${GF_DOMAINROOT}/../lib
-wget http://repo1.maven.org/maven2/org/hibernate/hibernate-entitymanager/4.1.9.Final/hibernate-entitymanager-4.1.9.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/hibernate-core/4.1.9.Final/hibernate-core-4.1.9.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/javax/persistence/hibernate-jpa-2.0-api/1.0.1.Final/hibernate-jpa-2.0-api-1.0.1.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/common/hibernate-commons-annotations/4.0.1.Final/hibernate-commons-annotations-4.0.1.Final.jar
-wget http://central.maven.org/maven2/org/jboss/logging/jboss-logging/3.1.2.GA/jboss-logging-3.1.2.GA.jar
-wget http://central.maven.org/maven2/org/jboss/spec/javax/transaction/jboss-transaction-api_1.1_spec/1.0.1.Final/jboss-transaction-api_1.1_spec-1.0.1.Final.jar
-wget http://central.maven.org/maven2/dom4j/dom4j/1.6.1/dom4j-1.6.1.jar
-wget http://central.maven.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar
-wget http://central.maven.org/maven2/org/javassist/javassist/3.17.1-GA/javassist-3.17.1-GA.jar
-wget http://central.maven.org/maven2/org/slf4j/slf4j-api/1.7.2/slf4j-api-1.7.2.jar
-wget http://central.maven.org/maven2/org/slf4j/slf4j-jdk14/1.7.2/slf4j-jdk14-1.7.2.jar
-
 
 # need running instance for this to work
 ${ASADMIN} start-domain ${DOMAIN} || exit 1
