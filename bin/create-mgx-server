@@ -15,6 +15,7 @@ GPMSTYPE=$1
 DOMAIN=$2
 
 command -v xsltproc >/dev/null 2>&1 || { echo >&2 "xsltproc not found."; exit 1; }
+command -v xmllint >/dev/null 2>&1 || { echo >&2 "xmllint not found."; exit 1; }
 command -v asadmin >/dev/null 2>&1 || { echo >&2 "asadmin not found."; exit 1; }
 
 
@@ -105,12 +106,15 @@ wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-42.2.5.jar \
   https://jdbc.postgresql.org/download/postgresql-42.2.5.jar
 
 # fetch JavaGPMS realm
-wget \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/GPMS-glassfish3-realm-1.1.jar \
-  https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
+#wget \
+#  -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/GPMS-glassfish3-realm-1.1.jar \
+#  https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
 
 # need running instance for this to work
 ${ASADMIN} start-domain ${DOMAIN} || exit 1
 ${ASADMIN} enable-secure-admin || exit 1
 ${ASADMIN} stop-domain ${DOMAIN} || exit 1
+
+echo "Setup complete." 
+echo "Dont forget to adapt database host and credentials in ${CFG_DIR}/domain.xml"
 
