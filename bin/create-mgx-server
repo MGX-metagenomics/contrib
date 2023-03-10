@@ -4,15 +4,14 @@
 # $Id$
 #
 
-if [ $# -ne 2 ]; then
+if [ $# -ne 1 ]; then
     echo ""
-    echo "Usage $0 <GPMS-type> <domain-name>"
+    echo "Usage $0 <domain-name>"
     echo ""
     exit 1
 fi
 
-GPMSTYPE=$1
-DOMAIN=$2
+DOMAIN=$1
 
 command -v xsltproc >/dev/null 2>&1 || { echo >&2 "xsltproc not found."; exit 1; }
 command -v xmllint >/dev/null 2>&1 || { echo >&2 "xmllint not found."; exit 1; }
@@ -74,35 +73,18 @@ mv ${CFG_DIR}/domain.xml2 ${CFG_DIR}/domain.xml
 # 
 # configure GPMS authentication backend
 #
-if [ ${GPMSTYPE} = "MySQL" ]; then
 
-    ( echo "GPMSRealm {"
-      echo "        de.cebitec.gpms.appserv.GPMSGlassfishLoginModule required;"
-      echo "};"
-      echo ""
-    ) > ${CFG_DIR}/login.conf
-    cat ${CFG_DIR}/login.conf.dist >> ${CFG_DIR}/login.conf
+( echo "GPMSRealm {"
+    echo "        de.cebitec.gpms.appserv.GPMSGlassfishLoginModule required;"
+    echo "};"
+    echo ""
+) > ${CFG_DIR}/login.conf
+cat ${CFG_DIR}/login.conf.dist >> ${CFG_DIR}/login.conf
 
-    XSLT_GPMS="`dirname $0`/../share/MGX_mysqlgpms.xsl"
-    xsltproc ${XSLT_GPMS} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml.gpms
-    mv ${CFG_DIR}/domain.xml.gpms ${CFG_DIR}/domain.xml
+XSLT_GPMS="`dirname $0`/../share/MGX_ldapgpms.xsl"
+xsltproc ${XSLT_GPMS} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml.gpms
+mv ${CFG_DIR}/domain.xml.gpms ${CFG_DIR}/domain.xml
 
-elif [ ${GPMSTYPE} = "LDAP" ]; then
-
-    ( echo "GPMSRealm {"
-      echo "        de.cebitec.gpms.appserv.GPMSGlassfishLoginModule required;"
-      echo "};"
-      echo ""
-    ) > ${CFG_DIR}/login.conf
-    cat ${CFG_DIR}/login.conf.dist >> ${CFG_DIR}/login.conf
-
-    XSLT_GPMS="`dirname $0`/../share/MGX_ldapgpms.xsl"
-    xsltproc ${XSLT_GPMS} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml.gpms
-    mv ${CFG_DIR}/domain.xml.gpms ${CFG_DIR}/domain.xml
-
-else
-    echo "Invalid GPMS implementation type. Cannot auto-setup configuration."
-fi
 
 #
 # format domain configuration
