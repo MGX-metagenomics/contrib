@@ -128,8 +128,9 @@ wget -q --user-agent="Mozilla" \
   https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar
 
 # psql driver
-wget -q -O ${GF_DOMAINROOT}/${DOMAIN}/lib/postgresql-42.3.3.jar \
-  https://jdbc.postgresql.org/download/postgresql-42.3.3.jar
+wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/postgresql.jar \
+  https://jdbc.postgresql.org/download/postgresql-42.5.4.jar
+
 
 
 # fetch JavaGPMS realm
