@@ -15,12 +15,15 @@ GPMSTYPE=$1
 DOMAIN=$2
 
 command -v xsltproc >/dev/null 2>&1 || { echo >&2 "xsltproc not found."; exit 1; }
+command -v xmllint >/dev/null 2>&1 || { echo >&2 "xmllint not found."; exit 1; }
 command -v asadmin >/dev/null 2>&1 || { echo >&2 "asadmin not found."; exit 1; }
 
+set -e
 
 # find the glassfish installation dir
 #
-GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
+ASADMIN=`which asadmin`
+GF_ROOT=`dirname $ASADMIN | sed -e 's/bin$//'`
 GF_DOMAINROOT=""
 
 if [ -d ${GF_ROOT}glassfish/domains ]; then
@@ -33,19 +36,40 @@ else
 fi
 
 
-${ASADMIN} create-domain ${DOMAIN} || exit 1
+asadmin create-domain ${DOMAIN} || exit 1
+
+# need running instance for this to work
+asadmin start-domain ${DOMAIN} || exit 1
+asadmin enable-secure-admin || exit 1
+asadmin stop-domain ${DOMAIN} || exit 1
+
 
 CFG_DIR=${GF_DOMAINROOT}/${DOMAIN}/config
 
 # create backup copies of unmodified domain configuration
-mv ${CFG_DIR}/login.conf ${CFG_DIR}/login.conf.dist || exit 1
-mv ${CFG_DIR}/domain.xml ${CFG_DIR}/domain.xml.dist || exit 1
+cp ${CFG_DIR}/login.conf ${CFG_DIR}/login.conf.dist
+cp ${CFG_DIR}/domain.xml ${CFG_DIR}/domain.xml.dist 
+
+#
+# logging configuration
+#
+mv ${CFG_DIR}/logging.properties ${CFG_DIR}/logging.properties.dist
+cp share/logging.properties.Payara ${CFG_DIR}/logging.properties
 
 #
 # basic setup of MGX datasources
 #
 XSLT="`dirname $0`/../share/MGX_base.xsl"
 xsltproc ${XSLT} ${CFG_DIR}/domain.xml.dist > ${CFG_DIR}/domain.xml
+
+
+#
+# move http to tcp/80, ssl port to tcp/443
+#
+XSLT="`dirname $0`/../share/MGX_sslport.xsl"
+xsltproc ${XSLT} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml2
+mv ${CFG_DIR}/domain.xml2 ${CFG_DIR}/domain.xml
+
 
 # 
 # configure GPMS authentication backend
@@ -66,7 +90,7 @@ if [ ${GPMSTYPE} = "MySQL" ]; then
 elif [ ${GPMSTYPE} = "LDAP" ]; then
 
     ( echo "GPMSRealm {"
-      echo "        com.sun.enterprise.security.auth.login.LDAPLoginModule required;"
+      echo "        de.cebitec.gpms.appserv.GPMSGlassfishLoginModule required;"
       echo "};"
       echo ""
     ) > ${CFG_DIR}/login.conf
@@ -88,6 +112,10 @@ mv /tmp/$$ ${CFG_DIR}/domain.xml
 
 cp `dirname $0`/../share/mgx_server.properties ${CFG_DIR}/
 cp `dirname $0`/../share/gpms.properties ${CFG_DIR}/
+#cp `dirname $0`/../share/logging.properties ${CFG_DIR}/
+
+HOST_FQDN=`hostname -f`
+sed -i "s,HOST,$HOST_FQDN,g" ${CFG_DIR}/mgx_server.properties
 
 #
 # due to different classloaders, several dependencies cannot be
@@ -95,40 +123,19 @@ cp `dirname $0`/../share/gpms.properties ${CFG_DIR}/
 #
 
 # fetch the Mysql JAR
-wget --user-agent="Mozilla" \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/mysql-connector-java-5.1.38.jar \
-  http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar
+wget -q --user-agent="Mozilla" \
+  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/mysql-connector-java-8.0.28.jar \
+  https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar
 
 # psql driver
-wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-42.2.1.jre7.jar \
-  https://jdbc.postgresql.org/download/postgresql-42.2.1.jre7.jar
+wget -q -O ${GF_DOMAINROOT}/${DOMAIN}/lib/postgresql-42.3.3.jar \
+  https://jdbc.postgresql.org/download/postgresql-42.3.3.jar
 
-# JRI - R to Java binding
-#wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/JRI-0.9-6.jar \
-#  http://artifactory.cebitec.uni-bielefeld.de/artifactory/libs-release/de/cebitec/external/JRI/0.9-6/JRI-0.9-6.jar
 
 # fetch JavaGPMS realm
-wget \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/GPMS-glassfish3-realm-1.1.jar \
-  https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
+mkdir -p ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/
+#wget -q \
+#  -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/GPMS-glassfish3-realm-1.1.jar \
+#  https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
 
-# Hibernate 4
-cd ${GF_DOMAINROOT}/../lib
-wget http://repo1.maven.org/maven2/org/hibernate/hibernate-entitymanager/4.1.9.Final/hibernate-entitymanager-4.1.9.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/hibernate-core/4.1.9.Final/hibernate-core-4.1.9.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/javax/persistence/hibernate-jpa-2.0-api/1.0.1.Final/hibernate-jpa-2.0-api-1.0.1.Final.jar
-wget http://repo1.maven.org/maven2/org/hibernate/common/hibernate-commons-annotations/4.0.1.Final/hibernate-commons-annotations-4.0.1.Final.jar
-wget http://central.maven.org/maven2/org/jboss/logging/jboss-logging/3.1.2.GA/jboss-logging-3.1.2.GA.jar
-wget http://central.maven.org/maven2/org/jboss/spec/javax/transaction/jboss-transaction-api_1.1_spec/1.0.1.Final/jboss-transaction-api_1.1_spec-1.0.1.Final.jar
-wget http://central.maven.org/maven2/dom4j/dom4j/1.6.1/dom4j-1.6.1.jar
-wget http://central.maven.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar
-wget http://central.maven.org/maven2/org/javassist/javassist/3.17.1-GA/javassist-3.17.1-GA.jar
-wget http://central.maven.org/maven2/org/slf4j/slf4j-api/1.7.2/slf4j-api-1.7.2.jar
-wget http://central.maven.org/maven2/org/slf4j/slf4j-jdk14/1.7.2/slf4j-jdk14-1.7.2.jar
-
-
-# need running instance for this to work
-${ASADMIN} start-domain ${DOMAIN} || exit 1
-${ASADMIN} enable-secure-admin || exit 1
-${ASADMIN} stop-domain ${DOMAIN} || exit 1
-
+rm -f ${GF_ROOT}glassfish/domains/${DOMAIN}/logs/server.log
