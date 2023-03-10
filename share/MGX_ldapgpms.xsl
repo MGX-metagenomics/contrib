@@ -19,7 +19,7 @@
     <xsl:element name="auth-realm">
 
       <xsl:attribute name="name">GPMSRealm</xsl:attribute>
-      <xsl:attribute name="classname">com.sun.enterprise.security.auth.realm.ldap.LDAPRealm</xsl:attribute>
+      <xsl:attribute name="classname">de.cebitec.gpms.appserv.GPMSGlassfishRealm</xsl:attribute>
 
       <xsl:element name="property">
         <xsl:attribute name="name">jaas-context</xsl:attribute>
@@ -35,7 +35,7 @@
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">directory</xsl:attribute>
-        <xsl:attribute name="value">ldap://jim.computational.bio.uni-giessen.de:389 ldap://lukas.computational.bio.uni-giessen.de:389</xsl:attribute>
+        <xsl:attribute name="value">ldap://infra.internal.computational.bio.uni-giessen.de:389</xsl:attribute>
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">base-dn</xsl:attribute>
