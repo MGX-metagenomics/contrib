@@ -4,21 +4,24 @@
 # $Id$
 #
 
-if [ $# -ne 2 ]; then
+if [ $# -ne 1 ]; then
     echo ""
-    echo "Usage $0 <GPMS-type> <domain-name>"
+    echo "Usage $0 <domain-name>"
     echo ""
     exit 1
 fi
 
-GPMSTYPE=$1
-DOMAIN=$2
+set -e
+
+DOMAIN=$1
 
 command -v xsltproc >/dev/null 2>&1 || { echo >&2 "xsltproc not found."; exit 1; }
 command -v asadmin >/dev/null 2>&1 || { echo >&2 "asadmin not found."; exit 1; }
 
+
 # find the glassfish installation dir
 #
+ASADMIN=`which asadmin`
 GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
 GF_DOMAINROOT=""
 
@@ -27,7 +30,7 @@ if [ -d ${GF_ROOT}glassfish/domains ]; then
 elif [ -d ${GF_ROOT}domains ]; then
     GF_DOMAINROOT=${GF_ROOT}domains
 else 
-    echo "Could not determine Glassfish domain directory."
+    echo "Could not determine Glassfish/Payara domain directory."
     exit 1
 fi
 
@@ -43,40 +46,27 @@ mv ${CFG_DIR}/domain.xml ${CFG_DIR}/domain.xml.dist || exit 1
 XSLT="`dirname $0`/../share/MGXdispatcher.xsl"
 xsltproc ${XSLT} ${CFG_DIR}/domain.xml.dist > ${CFG_DIR}/domain.xml
 
-if [ ${GPMSTYPE} = "MySQL" ]; then
-
-    # fetch jdbc driver
-    wget --user-agent="Mozilla" \
-      -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/mysql-connector-java-5.1.38.jar \
-      http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.38/mysql-connector-java-5.1.38.jar
-
-    XSLT_GPMS="`dirname $0`/../share/MGXdispatcher_mysqlgpms.xsl"
-    xsltproc ${XSLT_GPMS} ${CFG_DIR}/domain.xml > ${CFG_DIR}/domain.xml.gpms
-    mv ${CFG_DIR}/domain.xml.gpms ${CFG_DIR}/domain.xml
-
-elif [ ${GPMSTYPE} = "LDAP" ]; then
-
-    echo "Skipping JDBC datasource, not required"
-
-else 
-    echo "Invalid GPMS implementation type. Cannot auto-setup configuration."
-fi
-
 xmllint --format ${CFG_DIR}/domain.xml > /tmp/$$
 mv /tmp/$$ ${CFG_DIR}/domain.xml
 
 cp `dirname $0`/../share/mgx_dispatcher.properties ${CFG_DIR}/
 cp `dirname $0`/../share/gpms.properties ${CFG_DIR}/
 
+#
+# logging configuration
+#
+mv ${CFG_DIR}/logging.properties ${CFG_DIR}/logging.properties.dist
+cp share/logging.properties.Payara ${CFG_DIR}/logging.properties
+
 
 # psql driver
-wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/postgresql-9.4.1207.jre6.jar \
-  https://jdbc.postgresql.org/download/postgresql-9.4.1207.jre6.jar
+wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/postgresql.jar \
+  https://jdbc.postgresql.org/download/postgresql-42.5.4.jar
 
 # SQLite for persistent job queue
 wget --user-agent="Mozilla" \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/ext/sqlite-jdbc-3.8.11.2.jar \
-  http://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.8.11.2/sqlite-jdbc-3.8.11.2.jar
+  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/sqlite-jdbc.jar \
+  https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.41.0.0/sqlite-jdbc-3.41.0.0.jar
 
 
 # need running instance for this to work
