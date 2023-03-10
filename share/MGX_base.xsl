@@ -31,11 +31,19 @@
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">serverName</xsl:attribute>
+<<<<<<< HEAD
         <xsl:attribute name="value">postgresql-15.intra</xsl:attribute>
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">password</xsl:attribute>
         <xsl:attribute name="value">password-for-db-access</xsl:attribute>
+=======
+        <xsl:attribute name="value">postgresql.database.host</xsl:attribute>
+      </xsl:element>
+      <xsl:element name="property">
+        <xsl:attribute name="name">password</xsl:attribute>
+        <xsl:attribute name="value">secret</xsl:attribute>
+>>>>>>> ad383145ea3c075ab8602cc29dc1276ad874e43d
       </xsl:element>
     </xsl:element>
 

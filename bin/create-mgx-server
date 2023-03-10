@@ -22,7 +22,7 @@ set -e
 # find the glassfish installation dir
 #
 ASADMIN=`which asadmin`
-GF_ROOT=`dirname $ASADMIN | sed -e 's/bin$//'`
+GF_ROOT=`dirname ${ASADMIN} | sed -e 's/bin$//'`
 GF_DOMAINROOT=""
 
 if [ -d ${GF_ROOT}glassfish/domains ]; then
@@ -101,24 +101,14 @@ sed -i "s,HOST,$HOST_FQDN,g" ${CFG_DIR}/mgx_server.properties
 
 #
 # due to different classloaders, several dependencies cannot be
-# deployed and have to be direclty installed into lib/ext/
+# deployed and have to be direclty installed into lib/
 #
-
-# fetch the Mysql JAR
-wget -q --user-agent="Mozilla" \
-  -O ${GF_DOMAINROOT}/${DOMAIN}/lib/mysql-connector-java-8.0.28.jar \
-  https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar
 
 # psql driver
 wget -O ${GF_DOMAINROOT}/${DOMAIN}/lib/postgresql.jar \
   https://jdbc.postgresql.org/download/postgresql-42.5.4.jar
 
-
-
-# fetch JavaGPMS realm
-mkdir -p ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/
-#wget -q \
-#  -O ${GF_DOMAINROOT}/${DOMAIN}/autodeploy/bundles/GPMS-glassfish3-realm-1.1.jar \
-#  https://artifactory.computational.bio.uni-giessen.de/artifactory/libs-release-local/de/cebitec/gpms/GPMS-glassfish3-realm/1.1/GPMS-glassfish3-realm-1.1.jar
-
 rm -f ${GF_ROOT}glassfish/domains/${DOMAIN}/logs/server.log
+echo "Setup complete." 
+echo "Dont forget to adapt database host and credentials in ${CFG_DIR}/domain.xml"
+

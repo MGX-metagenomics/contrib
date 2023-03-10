@@ -60,11 +60,11 @@
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">serverName</xsl:attribute>
-        <xsl:attribute name="value">pgsql</xsl:attribute>
+        <xsl:attribute name="value">postgresql.server.host</xsl:attribute>
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">password</xsl:attribute>
-        <xsl:attribute name="value">skfghaslr</xsl:attribute>
+        <xsl:attribute name="value">secret</xsl:attribute>
       </xsl:element>
     </xsl:element>
 
