@@ -23,7 +23,6 @@ SET default_with_oids = false;
 CREATE TABLE habitat (
     id BIGSERIAL UNIQUE PRIMARY KEY,
     name character varying(255) UNIQUE NOT NULL,
-    altitude integer NOT NULL,
     biome character varying(255),
     description text,
     latitude numeric(11,8) NOT NULL,
@@ -71,12 +70,12 @@ ALTER SEQUENCE dnaextract_id_seq OWNED BY dnaextract.id;
 CREATE TABLE seqrun (
     id BIGSERIAL UNIQUE PRIMARY KEY,
     name character varying(255) NOT NULL,
-    dbfile character varying(255),
     database_accession character varying(255),
     num_sequences bigint NOT NULL,
     sequencing_method bigint NOT NULL,
     sequencing_technology bigint NOT NULL,
     submitted_to_insdc boolean NOT NULL,
+    paired boolean NOT NULL,
     dnaextract_id bigint NOT NULL REFERENCES dnaextract(id)
 );
 ALTER TABLE public.seqrun OWNER TO mgx_user;
@@ -107,10 +106,12 @@ CREATE TABLE tool (
     name character varying(255) NOT NULL,
     url character varying(512),
     version real NOT NULL,
-    xml_file character varying(255)
+    scope integer NOT NULL,
+    file character varying(255)
 );
 ALTER TABLE public.tool OWNER TO mgx_user;
-ALTER TABLE ONLY tool ADD CONSTRAINT tool_name_key UNIQUE (name, version);
+ALTER TABLE ONLY tool ADD CONSTRAINT tool_name_key UNIQUE (name, scope, version);
+
 
 
 
@@ -127,6 +128,17 @@ ALTER SEQUENCE attributetype_id_seq OWNED BY attributetype.id;
 CREATE UNIQUE INDEX attrtype_unique_idx ON attributetype USING btree (name, structure, value_type);
 
 
+CREATE TABLE assembly (
+    id BIGSERIAL UNIQUE PRIMARY KEY,
+    name character varying(255) NOT NULL,
+    reads_assembled BIGINT,
+    n50 BIGINT
+);
+ALTER TABLE public.assembly OWNER TO mgx_user;
+ALTER TABLE ONLY assembly ADD CONSTRAINT asmname_key UNIQUE (name);
+ALTER TABLE public.assembly_id_seq OWNER TO mgx_user;
+ALTER SEQUENCE assembly_id_seq OWNED BY assembly.id;
+
 
 
 CREATE TABLE job (
@@ -135,16 +147,21 @@ CREATE TABLE job (
     job_state integer,
     startdate timestamp without time zone,
     finishdate timestamp without time zone,
-    seqrun_id bigint NOT NULL REFERENCES seqrun(id),
+    apikey character varying(255),
+    seqruns BIGINT[],
+    assembly BIGINT REFERENCES assembly(id),
     tool_id bigint NOT NULL REFERENCES tool(id)
 );
 ALTER TABLE public.job OWNER TO mgx_user;
 ALTER TABLE public.job_id_seq OWNER TO mgx_user;
 ALTER SEQUENCE job_id_seq OWNED BY job.id;
-CREATE INDEX job_seqrun_idx ON job USING btree (seqrun_id);
+-- CREATE INDEX job_seqrun_idx ON job USING btree (seqrun_id);
 CREATE INDEX job_tool_idx ON job USING btree (tool_id);
 CREATE INDEX job_jobstate_idx ON job USING btree (job_state);
 
+
+ALTER TABLE public.assembly ADD COLUMN job_id BIGINT NOT NULL REFERENCES job(id);
+CREATE INDEX assembly_jobid_idx ON assembly USING btree(job_id);
 
 
 CREATE TABLE jobparameter (
@@ -190,10 +207,11 @@ CREATE UNIQUE INDEX attribute_unique_idx ON attribute USING btree (attrtype_id, 
 
 CREATE TABLE attributecount (
     attr_id bigint UNIQUE NOT NULL REFERENCES attribute(id),
+    run_id BIGINT NOT NULL REFERENCES seqrun(id),
     cnt bigint CHECK(cnt > 0)
 );
 ALTER TABLE public.attributecount OWNER TO mgx_user;
-CREATE INDEX attrcount_idx ON attributecount USING btree(attr_id);
+CREATE INDEX attrcount_idx ON attributecount USING btree(attr_id, run_id);
 
 
 
@@ -227,7 +245,7 @@ CREATE TABLE region (
     id BIGSERIAL UNIQUE PRIMARY KEY,
     name character varying(255) NOT NULL,
     description character varying(255),
-    type character varying(32) NOT NULL,
+    type character varying(10) NOT NULL,
     reg_start integer NOT NULL,
     reg_stop integer NOT NULL,
     ref_id bigint NOT NULL REFERENCES reference(id)
@@ -252,6 +270,74 @@ ALTER SEQUENCE mapping_id_seq OWNED BY mapping.id;
 CREATE UNIQUE INDEX mapping_unique_idx ON mapping USING btree (run_id, ref_id, job_id);
 
 
+CREATE TABLE bin (
+    id BIGSERIAL UNIQUE PRIMARY KEY,
+    name character varying(255) NOT NULL,
+    completeness REAL,
+    contamination REAL,
+    taxonomy character varying,
+    n50 BIGINT,
+    predicted_cds INTEGER,
+    num_contigs INTEGER,
+    total_bp BIGINT,
+    assembly_id BIGINT REFERENCES assembly(id)
+);
+ALTER TABLE public.bin OWNER TO mgx_user;
+ALTER TABLE public.bin_id_seq OWNER TO mgx_user;
+ALTER SEQUENCE bin_id_seq OWNED BY bin.id;
+CREATE INDEX bin_assemblyid_idx ON bin USING btree(assembly_id);
+
+
+CREATE TABLE contig (
+    id BIGSERIAL UNIQUE PRIMARY KEY,
+    name character varying(255) NOT NULL,
+    gc FLOAT,
+    length_bp INTEGER,
+    coverage INTEGER,
+    bin_id BIGINT REFERENCES bin(id)
+);
+ALTER TABLE public.contig OWNER TO mgx_user;
+ALTER TABLE public.contig_id_seq OWNER TO mgx_user;
+ALTER SEQUENCE contig_id_seq OWNED BY contig.id;
+CREATE INDEX contig_binid_idx ON contig USING btree(bin_id);
+
+
+CREATE TABLE gene (
+    id BIGSERIAL UNIQUE PRIMARY KEY,
+    start INTEGER,
+    stop INTEGER,
+    type character varying(10) NOT NULL,
+    coverage INTEGER,
+    contig_id BIGINT REFERENCES contig(id)
+);
+ALTER TABLE public.gene OWNER TO mgx_user;
+ALTER TABLE public.gene_id_seq OWNER TO mgx_user;
+ALTER SEQUENCE gene_id_seq OWNED BY gene.id;
+CREATE INDEX gene_contigid_idx ON gene USING btree(contig_id);
+
+
+
+CREATE TABLE gene_coverage (
+    run_id BIGINT REFERENCES seqrun(id),
+    gene_id BIGINT REFERENCES gene(id),
+    coverage INTEGER
+);
+ALTER TABLE public.gene_coverage OWNER TO mgx_user;
+CREATE INDEX genecov_geneid_runid_idx ON gene_coverage USING btree(gene_id, run_id);
+
+
+
+CREATE TABLE gene_observation (
+    start integer,
+    stop integer,
+    gene_id bigint NOT NULL REFERENCES gene(id),
+    attr_id bigint NOT NULL REFERENCES attribute(id)
+);
+ALTER TABLE public.gene_observation OWNER TO mgx_user;
+CREATE INDEX geneobs_attr_idx ON gene_observation USING btree (attr_id);
+CREATE INDEX geneobs_gene_idx ON gene_observation USING btree (gene_id);
+
+
 
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
@@ -263,8 +349,8 @@ GRANT ALL ON SCHEMA public TO PUBLIC;
 --
 -- function declarations 
 --
-DROP FUNCTION IF EXISTS getDistribution(attrtype bigint, job bigint);
-CREATE OR REPLACE FUNCTION getDistribution(attrtype bigint, job bigint)
+DROP FUNCTION IF EXISTS getDistribution(attrtype bigint, job bigint, seqrun bigint);
+CREATE OR REPLACE FUNCTION getDistribution(attrtype bigint, job bigint, seqrun bigint)
     RETURNS TABLE(attr_id bigint, attr_value text, count bigint, attr_parent bigint)
     AS $$
         SELECT attr.id as attr_id, attr.value as attr_value, attrcount.cnt as count, attr.parent_id as attr_parent
@@ -274,12 +360,28 @@ CREATE OR REPLACE FUNCTION getDistribution(attrtype bigint, job bigint)
             LEFT JOIN job j ON (attr.job_id=j.id)
             WHERE attr.attrtype_id=$1
             AND attr.job_id=$2
+            AND attrcount.run_id=$3
             AND j.job_state=5
 $$ LANGUAGE SQL STABLE RETURNS NULL ON NULL INPUT SECURITY INVOKER;
 
 
-DROP FUNCTION IF EXISTS getHierarchy(attrtype bigint, job bigint);
-CREATE OR REPLACE FUNCTION getHierarchy(attrtype bigint, job bigint)
+DROP FUNCTION IF EXISTS getFilteredDistribution(attrtype bigint, job bigint, filterattr bigint);
+CREATE OR REPLACE FUNCTION getFilteredDistribution(attrtype bigint, job bigint, filterattr bigint)
+   RETURNS TABLE(attrid bigint, attr_value text, count bigint, attr_parent bigint)
+   LANGUAGE PLPGSQL VOLATILE 
+   AS $$
+   BEGIN
+       CREATE TEMPORARY TABLE temp_tbl (attr_id bigint, value text, parent_id bigint, attrtype_id bigint) ON COMMIT DROP; /* gsh #158005 */
+       INSERT INTO temp_tbl SELECT attr_id, value, parent_id, attrtype_id FROM (SELECT * FROM (SELECT r.seq_id, o.* FROM observation r, observation o WHERE r.seq_id = o.seq_id AND r.attr_id=$3) o, attribute a, job j WHERE o.attr_id=a.id AND a.job_id=j.id AND j.job_state=5 AND a.job_id=$2) t; /* gsh #158005 */
+
+       RETURN query SELECT attr_id, value, count(value), parent_id FROM temp_tbl WHERE attrtype_id=$1 GROUP BY attr_id, value, parent_id ORDER BY attr_id; /* gsh #158005 */
+   END
+$$ RETURNS NULL ON NULL INPUT SECURITY INVOKER;
+
+
+
+DROP FUNCTION IF EXISTS getHierarchy(attrtype bigint, job bigint, seqrun bigint);
+CREATE OR REPLACE FUNCTION getHierarchy(attrtype bigint, job bigint, seqrun bigint)
     RETURNS TABLE(attrtype_id bigint, attrtype_name text, atype_structure character(1), attrtype_valtype character(1), attr_id bigint, attr_value text, parent_id bigint, count bigint)
     AS $$
         WITH RECURSIVE subattributes AS (
@@ -291,6 +393,7 @@ CREATE OR REPLACE FUNCTION getHierarchy(attrtype bigint, job bigint)
                 LEFT JOIN attributetype atype ON (attr.attrtype_id = atype.id)
                 LEFT JOIN attributecount attrcount ON (attr.id = attrcount.attr_id)
                 WHERE attr.job_id=$2
+                AND attrcount.run_id=$3
             )
             SELECT * FROM attributecounts WHERE attr_id=(
                 WITH RECURSIVE findroot AS (
@@ -343,24 +446,6 @@ CREATE OR REPLACE FUNCTION getCorrelation(job1 bigint, attrtype1 bigint, job2 bi
 $$ LANGUAGE SQL STABLE RETURNS NULL ON NULL INPUT SECURITY INVOKER;
 
 
-DROP FUNCTION IF EXISTS searchTerm(term TEXT, exact BOOLEAN, runs NUMERIC[]);
-CREATE OR REPLACE FUNCTION searchTerm(term TEXT, exact BOOLEAN, runs NUMERIC[])
-    RETURNS TABLE(read_id BIGINT, read_name TEXT, read_length INTEGER)
-    AS $$
-        WITH matching_attrs AS (
-            SELECT attr.id FROM attribute attr
-            LEFT JOIN job ON (attr.job_id = job.id)
-            WHERE job.seqrun_id = ANY($3) AND job.job_state=5
-                AND ($2 AND upper(attr.value) = upper($1)
-                OR NOT ($2) AND upper(attr.value) LIKE CONCAT('%', upper($1), '%'))
-        )
-        SELECT DISTINCT read.id AS read_id, read.name AS read_name, read.length as read_length
-        FROM read
-        JOIN observation obs ON (read.id = obs.seq_id)
-        JOIN matching_attrs ON (obs.attr_id = matching_attrs.id)
-$$ LANGUAGE SQL STABLE RETURNS NULL ON NULL INPUT SECURITY INVOKER;
-
-
 DROP FUNCTION IF EXISTS getObservations(seqId BIGINT);
 CREATE OR REPLACE FUNCTION getObservations(seqId BIGINT)
     RETURNS TABLE(obs_start INTEGER, obs_stop INTEGER,
@@ -374,6 +459,22 @@ CREATE OR REPLACE FUNCTION getObservations(seqId BIGINT)
         JOIN job ON (attr.job_id = job.id)
         WHERE job.job_state=5 AND o.seq_id=$1
 $$ LANGUAGE SQL STABLE RETURNS NULL ON NULL INPUT SECURITY INVOKER;
+
+
+DROP FUNCTION IF EXISTS getGeneObservations(geneId BIGINT);
+CREATE OR REPLACE FUNCTION getGeneObservations(geneId BIGINT)
+    RETURNS TABLE(obs_start INTEGER, obs_stop INTEGER,
+                  attr_value TEXT, atype_name TEXT)
+    AS $$
+        SELECT o.start AS obs_start, o.stop AS obs_stop,
+               attr.value AS attr_value, atype.name as atype_name
+        FROM gene_observation o
+        JOIN attribute attr ON (o.attr_id = attr.id)
+        JOIN attributetype atype ON (attr.attrtype_id = atype.id)
+        JOIN job ON (attr.job_id = job.id)
+        WHERE job.job_state=5 AND o.gene_id=$1
+$$ LANGUAGE SQL STABLE RETURNS NULL ON NULL INPUT SECURITY INVOKER;
+
 
 
 DROP FUNCTION IF EXISTS getRegions(refId BIGINT, fromPos INTEGER, toPos INTEGER);
@@ -405,8 +506,8 @@ GRANT CONNECT ON DATABASE @DBNAME@ TO mgx_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mgx_user;
 GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO mgx_user;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mgxadm;
-GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO mgxadm;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mgx_admin;
+GRANT SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO mgx_admin;
 
 --
 -- EOF
