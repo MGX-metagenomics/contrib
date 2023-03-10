@@ -1,0 +1,15 @@
+[Unit]
+Description=MGX application server
+After=syslog.target network.target
+
+[Service]
+Type=forking
+Restart=on-failure
+
+ExecStart=/opt/payara6/bin/asadmin start-domain mgx
+ExecStop=/opt/paraya6/bin/asadmin stop-domain mgx
+ExecReload=/opt/payara6/bin/asadmin restart-domain mgx
+TimeoutSec=180
+
+[Install]
+WantedBy=multi-user.target
