@@ -27,15 +27,15 @@
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">databaseName</xsl:attribute>
-        <xsl:attribute name="value">MGX_global</xsl:attribute>
+        <xsl:attribute name="value">MGX2_global</xsl:attribute>
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">serverName</xsl:attribute>
-        <xsl:attribute name="value">pgsql</xsl:attribute>
+        <xsl:attribute name="value">postgresql-15.intra</xsl:attribute>
       </xsl:element>
       <xsl:element name="property">
         <xsl:attribute name="name">password</xsl:attribute>
-        <xsl:attribute name="value">skfghaslr</xsl:attribute>
+        <xsl:attribute name="value">password-for-db-access</xsl:attribute>
       </xsl:element>
     </xsl:element>
 
