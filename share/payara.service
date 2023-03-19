@@ -1,6 +1,6 @@
 [Unit]
 Description=MGX application server
-After=syslog.target network.target
+After=syslog.target network.target nss-lookup.target
 
 [Service]
 Type=forking
